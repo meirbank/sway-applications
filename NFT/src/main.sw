@@ -11,13 +11,17 @@ use std::{
     chain::auth::msg_sender,
     identity::Identity,
     address::Address,
+    contract_id::ContractId,
+    b512::B512,
     logging::log,
     option::Option,
     result::Result,
     revert::require,
     storage::StorageMap,
-    context::contract_id,
+    context::call_frames::contract_id,
+    hash::keccak256,
     block::height,
+    ecr::{EcRecoverError, ec_recover_address},
 };
 
 storage {
@@ -79,10 +83,6 @@ storage {
     /// Mapping of Address -> nonces for permit with signature.
     nonces: StorageMap<Address, u64> = StorageMap {},
 
-    /// Permit typehash 
-    /// EIP2612 would be keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-    /// adding token_id for specific NFTs instead of value
-    permit_typehash: b256 = keccak256("Permit{owner: Address,spender: Identity,token_id: u64,nonce: u64,deadline: u64}"),
 }
 
 impl NFT for Contract {
@@ -307,19 +307,22 @@ impl NFT for Contract {
     require(deadline > height(), InputError::DeadlineExpired);
     let signature: B512 = ~B512::from(hi, lo);
 
-    // EIP2612: PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline
-    // for NFTs value isn't needed so we just use token_id instead
-    // Is it more efficient to read the permit typehash from storage or calculate the hash?
-    let nonce = storage.nonces.get(~Address::from(owner)) + 1;
-    storage.nonces.insert(~Address::from(owner), nonce);
-    let msg_hash = keccak256((domain_separator(), (storage.permit_typehash, owner, spender, token_id, nonce, deadline)));
-    let recovered_address: Result<Address, EcRecoverError> = ec_recover_address(signature, msg_hash);
-    let address_result = Result::Ok(address).unwrap();
+    // Permit typehash 
+    // EIP2612 would be keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    // adding token_id for specific NFTs instead of value
+    let permit_typehash: b256 = keccak256("Permit{owner: Address,spender: Identity,token_id: u64,nonce: u64,deadline: u64}");
 
-    require(recovered_address == address_result);
+    // for NFTs value isn't needed so we just use token_id instead
+    let nonce = storage.nonces.get(owner) + 1;
+    storage.nonces.insert(owner, nonce);
+    let msg_hash = keccak256((domain_separator(), (permit_typehash, owner, spender, token_id, nonce, deadline)));
+    let recovered_address: Result<Address, EcRecoverError> = ec_recover_address(signature, msg_hash);
+    let address_result = recovered_address.unwrap();
+
+    require(owner == address_result, InputError::InvalidPermitSignature);
 
     // Set and store the `approved` `Identity`
-    storage.approved.insert(token_id, Identity::Address(address_result));
+    storage.approved.insert(token_id, Option::Some(Identity::Address(address_result)));
 
     log(ApprovalEvent {
         owner: Identity::Address(address_result), approved: Option::Some(spender), token_id

@@ -20,4 +20,5 @@ pub enum InputError {
     TokenDoesNotExist: (),
     TokenSupplyCannotBeZero: (),
     DeadlineExpired: (),
+    InvalidPermitSignature: (),
 }
