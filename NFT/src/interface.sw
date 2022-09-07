@@ -3,7 +3,7 @@ library interface;
 dep data_structures;
 
 use data_structures::TokenMetaData;
-use std::{identity::Identity, option::Option};
+use std::{identity::Identity, address::Address, option::Option};
 
 pub struct AdminEvent {
     /// The user which is now the admin of this contract.
@@ -215,6 +215,39 @@ abi NFT {
     /// * When the sender is not approved to transfer the token on the owner's behalf.
     /// * When the sender is not approved to transfer all tokens on the owner's behalf.
     #[storage(read, write)]fn transfer_from(from: Identity, to: Identity, token_id: u64);
+
+    /// Creates a domain separator similar to EIP2612 but with tuples instead of ABI.encode
+    /// No arguments.
+    /// Returns the domain separator hash
+    //#[storage(read)]fn domain_separator() -> b256;
+    
+    /// Permits token aproval with signature, inspired by on EIP712 and EIP2612
+    /// If the `owner` address is recovered from the signature then the spender will be approved to transfer the NFT token
+    /// 
+    /// # Arguments
+    /// 
+    /// * `owner` - The Address of the owner of the NFT token
+    /// * `spender` - The Identity of the permitted spender who will be approved to transfer the NFT
+    /// * `token_id` - The token_id of the NFT to be approved
+    /// * `deadline` - The maximum block height when the permit signature can be used
+    /// * `hi` - The first part of the signature
+    /// * `lo` - The second part of the signature
+    /// #[storage(read, write)]fn permit(owner: Address, spender: Identity, token_id: u64, deadline: u64, hi: b256, lo: b256);
+
+    /// Approves and transfers NFT token in one transaction
+    /// first calls permit() and then transfer_from()
+    /// The spender who is being approved is the `msg_sender()`
+    /// 
+    /// # Arguments
+    /// 
+    /// * `from` - The Address of the owner of the NFT to transfer from
+    /// * `to` - The Identity of the recipient of the transfer
+    /// * `token_id` - The NFT token_id
+    /// * `deadline` - The maximum block height when the permit signature (and thus transfer) can be used
+    /// * `hi` - The first part of the signature
+    /// * `lo` - The second part of the signature
+    #[storage(read, write)]fn transfer_with_authorization(from: Address, to: Identity, token_id: u64, deadline: u64, hi: b256, lo: b256);
+    
 }
 
 pub struct OperatorEvent {

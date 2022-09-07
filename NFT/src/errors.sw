@@ -19,4 +19,5 @@ pub enum InputError {
     OwnerDoesNotExist: (),
     TokenDoesNotExist: (),
     TokenSupplyCannotBeZero: (),
+    DeadlineExpired: (),
 }
