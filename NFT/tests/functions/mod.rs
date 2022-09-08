@@ -13,3 +13,4 @@ mod set_admin;
 mod set_approval_for_all;
 mod total_supply;
 mod transfer_from;
+mod transfer_with_authorization;
